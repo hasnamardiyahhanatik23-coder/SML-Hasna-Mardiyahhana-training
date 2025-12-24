@@ -1,0 +1,16 @@
+name: loan_prediction
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - pandas
+    - scikit-learn
+    - mlflow
+    - dagshub
+    - matplotlib
+    - seaborn
+    - python-dotenv
+    - joblib
