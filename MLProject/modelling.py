@@ -1,62 +1,64 @@
+import os
 import pandas as pd
 import mlflow
 import mlflow.sklearn
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import os
 
 # =====================
-# 1. Setup MLflow Local
+# MLflow setup (local)
 # =====================
-# Set tracking URI ke folder lokal agar tidak perlu server DagsHub
 mlflow.set_tracking_uri("file:./mlruns")
 mlflow.set_experiment("Loan Prediction Experiment")
 
-# Aktifkan Autolog! 
-# Ini otomatis mencatat: Parameter model, Metrik akurasi, dan File Model (.pkl)
-mlflow.sklearn.autolog()
+mlflow.sklearn.autolog(
+    log_models=True,
+    log_input_examples=True,
+    log_model_signatures=True
+)
 
 def train():
-    # =====================
-    # 2. Load Dataset (Dari Repo 1)
-    # =====================
-    print("Loading preprocessed data...")
-    # Pastikan file ini ada (hasil download dari GitHub Action workflow sebelumnya)
-    if not os.path.exists("clean_dataset/train_clean.csv"):
-        print("Error: File dataset tidak ditemukan. Pastikan GitHub Action sudah mendownloadnya.")
-        return
+    # Path data dari root repo (ingat: modelling.py ada di folder MLProject)
+    train_path = os.path.join("..", "dataset_preprocessed", "train_clean.csv")
+    test_path  = os.path.join("..", "dataset_preprocessed", "test_clean.csv")
 
-    train_df = pd.read_csv("clean_dataset/train_clean.csv")
-    test_df = pd.read_csv("dataset/test_clean.csv")
+    print("Loading preprocessed data...")
+    if not os.path.exists(train_path) or not os.path.exists(test_path):
+        raise FileNotFoundError(
+            f"Dataset tidak ditemukan.\n"
+            f"- {train_path}\n"
+            f"- {test_path}\n"
+            f"Pastikan workflow preprocessing sudah menghasilkan file ini."
+        )
+
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
 
     X_train = train_df.drop("Loan_Status", axis=1)
     y_train = train_df["Loan_Status"]
-    X_test  = test_df.drop("Loan_Status", axis=1)
-    y_test  = test_df["Loan_Status"]
 
-    # =====================
-    # 3. Training Loop
-    # =====================
+    X_test = test_df.drop("Loan_Status", axis=1)
+    y_test = test_df["Loan_Status"]
+
     with mlflow.start_run(run_name="Logistic_Regression_Autolog"):
         print("Training Model...")
-        
-        # Kita pakai LogisticRegression sesuai request
-        # Tidak perlu StandardScaler lagi karena sudah dilakukan di Repo 1
-        model = LogisticRegression(max_iter=200, random_state=42)
-        
-        # Saat .fit() dipanggil, MLflow otomatis mencatat semuanya
+        model = LogisticRegression(max_iter=500, random_state=42)
         model.fit(X_train, y_train)
 
-        # =====================
-        # 4. Manual Print (Opsional)
-        # =====================
-        # Autolog sudah simpan di background, tapi kita print biar muncul di log GitHub Action
         y_pred = model.predict(X_test)
-        
+
+        # Karena target sudah 0/1, pos_label harus 1
         acc = accuracy_score(y_test, y_pred)
-        prec = precision_score(y_test, y_pred, zero_division=0)
-        rec = recall_score(y_test, y_pred, zero_division=0)
-        f1 = f1_score(y_test, y_pred, zero_division=0)
+        prec = precision_score(y_test, y_pred, pos_label=1, zero_division=0)
+        rec = recall_score(y_test, y_pred, pos_label=1, zero_division=0)
+        f1 = f1_score(y_test, y_pred, pos_label=1, zero_division=0)
+
+        # Autolog sudah log banyak hal, tapi metric manual ini enak buat bukti
+        mlflow.log_metric("accuracy_manual", acc)
+        mlflow.log_metric("precision_manual", prec)
+        mlflow.log_metric("recall_manual", rec)
+        mlflow.log_metric("f1_manual", f1)
 
         print("\n=== Evaluation Results ===")
         print(f"Accuracy  : {acc:.4f}")
@@ -64,7 +66,6 @@ def train():
         print(f"Recall    : {rec:.4f}")
         print(f"F1 Score  : {f1:.4f}")
         print("==========================")
-        print("Model & Metrics automatically logged by MLflow.")
 
 if __name__ == "__main__":
     train()
