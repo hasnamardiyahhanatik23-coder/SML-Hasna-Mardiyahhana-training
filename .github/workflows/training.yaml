@@ -2,28 +2,27 @@ name: Model Training Workflow
 
 on:
   push:
-    branches:
-      - main  # Trigger saat ada push ke branch main
+    paths:
+      - 'dataset_preprocessed/**'
+      - 'MLProject/**'
+      - '.github/workflows/**'
 
 jobs:
   train:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      
+      - uses: actions/checkout@v3
+
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
+
       - name: Install dependencies
         run: |
           pip install mlflow scikit-learn pandas
-          
-      # JIKA LEVEL BASIC/SKILLED (Training Lokal di Runner GitHub):
-      - name: Train Model
-        run: mlflow run MLProject --env-manager=local --experiment-name Titanic_Survival_Prediction    
-        
-      # ATAU JIKA MENGGUNAKAN PERINTAH MLFLOW RUN (Lebih disarankan):
-      # - name: Run MLflow Project
-      #   run: mlflow run MLProject_Folder --no-conda
+
+      - name: Train Model (MLflow Project)
+        working-directory: MLProject
+        run: |
+          mlflow run . --env-manager=local --experiment-name "Loan Prediction Experiment"
